@@ -37,117 +37,136 @@ def get_response(user_input):
     return response.text
 
 def process_command(command):
-    commands = {
-        "open notepad": ("notepad.exe", "Opening Notepad."),
-        "start notepad": ("notepad.exe", "Opening Notepad."),
-        "open calculator": ("calc.exe", "Opening Calculator."),
-        "open file explorer": ("explorer.exe", "Opening File Explorer."),
-        "open command prompt": ("cmd.exe", "Opening Command Prompt."),
-        "open task manager": ("taskmgr.exe", "Opening Task Manager."),
-        "open gmail": ("start chrome https://mail.google.com", "Opening Gmail."),
-        "open youtube": ("start chrome https://www.youtube.com", "Opening YouTube."),
-        "open google": ("start chrome https://www.google.com", "Opening Google."),
-        "open facebook": ("start chrome https://www.facebook.com", "Opening Facebook."),
-        "open twitter": ("start chrome https://www.twitter.com", "Opening Twitter."),
-        "open whatsapp": ("start chrome https://web.whatsapp.com", "Opening WhatsApp."),
-        "open instagram": ("start chrome https://www.instagram.com", "Opening Instagram."),
-        "open linkedin": ("start chrome https://www.linkedin.com", "Opening LinkedIn."),
-        "open stack overflow": ("start chrome https://stackoverflow.com", "Opening Stack Overflow."),
-        "open github": ("start chrome https://github.com", "Opening GitHub."),
-        "open reddit": ("start chrome https://www.reddit.com", "Opening Reddit."),
-        "open quora": ("start chrome https://www.quora.com", "Opening Quora."),
-        "open amazon": ("start chrome https://www.amazon.com", "Opening Amazon."),
-        "open flipkart": ("start chrome https://www.flipkart.com", "Opening Flipkart."),
-        "open news": ("start chrome https://news.google.com", "Opening News."),
-        "open weather": ("start chrome https://weather.com", "Opening Weather."),
-        "open calendar": ("start outlookcal:", "Opening Calendar."),
-        "open clock": ("start ms-clock:", "Opening Clock."),
-        "open settings": ("start ms-settings:", "Opening Settings."),
-        "open control panel": ("control", "Opening Control Panel."),
-        "open task scheduler": ("taskschd.msc", "Opening Task Scheduler."),
-        "open snipping tool": ("snippingtool", "Opening Snipping Tool."),
-        "open paint": ("mspaint", "Opening Paint."),
-        "open word": ("start winword", "Opening Microsoft Word."),
-        "open excel": ("start excel", "Opening Microsoft Excel."),
-        "open powerpoint": ("start powerpnt", "Opening Microsoft PowerPoint."),
-        "open access": ("start msaccess", "Opening Microsoft Access."),
-        "open publisher": ("start mspub", "Opening Microsoft Publisher."),
-        "open onenote": ("start onenote", "Opening Microsoft OneNote."),
-        "open teams": ("start teams", "Opening Microsoft Teams."),
-        "open skype": ("start skype", "Opening Skype."),
-        "open zoom": ("start zoom", "Opening Zoom."),
-        "open discord": ("start discord", "Opening Discord."),
-        "open slack": ("start slack", "Opening Slack."),
-        "open notepad++": ("start notepad++.exe", "Opening Notepad++."),
-        "open sublime text": ("start sublime_text.exe", "Opening Sublime Text."),
-        "open visual studio": ("start devenv", "Opening Visual Studio."),
-        "open eclipse": ("start eclipse", "Opening Eclipse."),
-        "open pycharm": ("start pycharm", "Opening PyCharm."),
-        "open intellij": ("start idea", "Opening IntelliJ IDEA."),
-        "open android studio": ("start studio64", "Opening Android Studio."),
-        "open Apache NetBeans": ("start netbeans", "Opening Apache NetBeans."),
-        "close notepad": ("taskkill /f /im notepad.exe", "Closing Notepad."),
-        "close calculator": ("taskkill /f /im calc.exe", "Closing Calculator."),
-        "close file explorer": ("taskkill /f /im explorer.exe", "Closing File Explorer."),
-        "close command prompt": ("taskkill /f /im cmd.exe", "Closing Command Prompt."),
-        "close task manager": ("taskkill /f /im taskmgr.exe", "Closing Task Manager."),
-        "close gmail": ("taskkill /f /im chrome.exe", "Closing Gmail."),
-        "close youtube": ("taskkill /f /im chrome.exe", "Closing YouTube."),
-        "close google": ("taskkill /f /im chrome.exe", "Closing Google."),
-        "close facebook": ("taskkill /f /im chrome.exe", "Closing Facebook."),
-        "close twitter": ("taskkill /f /im chrome.exe", "Closing Twitter."),
-        "close whatsapp": ("taskkill /f /im chrome.exe", "Closing WhatsApp."),
-        "close instagram": ("taskkill /f /im chrome.exe", "Closing Instagram."),
-        "close linkedin": ("taskkill /f /im chrome.exe", "Closing LinkedIn."),
-        "close stack overflow": ("taskkill /f /im chrome.exe", "Closing Stack Overflow."),
-        "close github": ("taskkill /f /im chrome.exe", "Closing GitHub."),
-        "close reddit": ("taskkill /f /im chrome.exe", "Closing Reddit."),
-        "close quora": ("taskkill /f /im chrome.exe", "Closing Quora."),
-        "close amazon": ("taskkill /f /im chrome.exe", "Closing Amazon."),
-        "close flipkart": ("taskkill /f /im chrome.exe", "Closing Flipkart."),
-        "close news": ("taskkill /f /im chrome.exe", "Closing News."),
-        "close weather": ("taskkill /f /im chrome.exe", "Closing Weather."),
-        "close calendar": ("taskkill /f /im outlook.exe", "Closing Calendar."),
-        "close clock": ("taskkill /f /im Time.exe", "Closing Clock."),
-        "close settings": ("taskkill /f /im SystemSettings.exe", "Closing Settings."),
-        "close control panel": ("taskkill /f /im control.exe", "Closing Control Panel."),
-        "close task scheduler": ("taskkill /f /im mmc.exe", "Closing Task Scheduler."),
-        "close snipping tool": ("taskkill /f /im SnippingTool.exe", "Closing Snipping Tool."),
-        "close paint": ("taskkill /f /im mspaint.exe", "Closing Paint."),
-        "close word": ("taskkill /f /im WINWORD.EXE", "Closing Microsoft Word."),
-        "close excel": ("taskkill /f /im EXCEL.EXE", "Closing Microsoft Excel."),
-        "close powerpoint": ("taskkill /f /im POWERPNT.EXE", "Closing Microsoft PowerPoint."),
-        "close access": ("taskkill /f /im MSACCESS.EXE", "Closing Microsoft Access."),
-        "close publisher": ("taskkill /f /im MSPUB.EXE", "Closing Microsoft Publisher."),
-        "close onenote": ("taskkill /f /im ONENOTE.EXE", "Closing Microsoft OneNote."),
-        "close teams": ("taskkill /f /im Teams.exe", "Closing Microsoft Teams."),
-        "close skype": ("taskkill /f /im Skype.exe", "Closing Skype."),
-        "close zoom": ("taskkill /f /im Zoom.exe", "Closing Zoom."),
-        "close discord": ("taskkill /f /im Discord.exe", "Closing Discord."),
-        "close slack": ("taskkill /f /im slack.exe", "Closing Slack."),
-        "close notepad++": ("taskkill /f /im notepad++.exe", "Closing Notepad++."),
-        "close sublime text": ("taskkill /f /im sublime_text.exe", "Closing Sublime Text."),
-        "close visual studio": ("taskkill /f /im devenv.exe", "Closing Visual Studio."),
-        "close eclipse": ("taskkill /f /im eclipse.exe", "Closing Eclipse."),
-        "close pycharm": ("taskkill /f /im pycharm64.exe", "Closing PyCharm."),
-        "close intellij": ("taskkill /f /im idea64.exe", "Closing IntelliJ IDEA."),
-        "close android studio": ("taskkill /f /im studio64.exe", "Closing Android Studio."),
-        "close Apache NetBeans": ("taskkill /f /im netbeans64.exe", "Closing Apache NetBeans."),
+        """Process voice commands."""
+        app_commands = {
+        "notepad": ("notepad.exe", "Opening Notepad."),
+        "calculator": ("calc.exe", "Opening Calculator."),
+        "file explorer": ("explorer.exe", "Opening File Explorer."),
+        "command prompt": ("cmd.exe", "Opening Command Prompt."),
+        "task manager": ("taskmgr.exe", "Opening Task Manager."),
+        "gmail": ("start chrome https://mail.google.com", "Opening Gmail."),
+        "youtube": ("start chrome https://www.youtube.com", "Opening YouTube."),
+        "google": ("start chrome https://www.google.com", "Opening Google."),
+        "facebook": ("start chrome https://www.facebook.com", "Opening Facebook."),
+        "twitter": ("start chrome https://www.twitter.com", "Opening Twitter."),
+        "whatsapp": ("start chrome https://web.whatsapp.com", "Opening WhatsApp."),
+        "instagram": ("start chrome https://www.instagram.com", "Opening Instagram."),
+        "linkedin": ("start chrome https://www.linkedin.com", "Opening LinkedIn."),
+        "stack overflow": ("start chrome https://stackoverflow.com", "Opening Stack Overflow."),
+        "github": ("start chrome https://github.com", "Opening GitHub."),
+        "reddit": ("start chrome https://www.reddit.com", "Opening Reddit."),
+        "quora": ("start chrome https://www.quora.com", "Opening Quora."),
+        "amazon": ("start chrome https://www.amazon.com", "Opening Amazon."),
+        "flipkart": ("start chrome https://www.flipkart.com", "Opening Flipkart."),
+        "news": ("start chrome https://news.google.com", "Opening News."),
+        "weather": ("start chrome https://weather.com", "Opening Weather."),
+        "calendar": ("start outlookcal:", "Opening Calendar."),
+        "clock": ("start ms-clock:", "Opening Clock."),
+        "settings": ("start ms-settings:", "Opening Settings."),
+        "control panel": ("control", "Opening Control Panel."),
+        "task scheduler": ("taskschd.msc", "Opening Task Scheduler."),
+        "snipping tool": ("snippingtool", "Opening Snipping Tool."),
+        "paint": ("mspaint", "Opening Paint."),
+        "word": ("start winword", "Opening Microsoft Word."),
+        "excel": ("start excel", "Opening Microsoft Excel."),
+        "powerpoint": ("start powerpnt", "Opening Microsoft PowerPoint."),
+        "access": ("start msaccess", "Opening Microsoft Access."),
+        "publisher": ("start mspub", "Opening Microsoft Publisher."),
+        "onenote": ("start onenote", "Opening Microsoft OneNote."),
+        "teams": ("start teams", "Opening Microsoft Teams."),
+        "skype": ("start skype", "Opening Skype."),
+        "zoom": ("start zoom", "Opening Zoom."),
+        "discord": ("start discord", "Opening Discord."),
+        "slack": ("start slack", "Opening Slack."),
+        "notepad++": ("start notepad++.exe", "Opening Notepad++."),
+        "sublime text": ("start sublime_text.exe", "Opening Sublime Text."),
+        "visual studio": ("start devenv", "Opening Visual Studio."),
+        "eclipse": ("start eclipse", "Opening Eclipse."),
+        "pycharm": ("start pycharm", "Opening PyCharm."),
+        "intellij": ("start idea", "Opening IntelliJ IDEA."),
+        "android studio": ("start studio64", "Opening Android Studio."),
+        "Apache NetBeans": ("start netbeans", "Opening Apache NetBeans."),
+        }
+        close_commands = {
+        "notepad": ("taskkill /f /im notepad.exe", "Closing Notepad."),
+        "calculator": ("taskkill /f /im calc.exe", "Closing Calculator."),
+        "file explorer": ("taskkill /f /im explorer.exe", "Closing File Explorer."),
+        "command prompt": ("taskkill /f /im cmd.exe", "Closing Command Prompt."),
+        "task manager": ("taskkill /f /im taskmgr.exe", "Closing Task Manager."),
+        "gmail": ("taskkill /f /im chrome.exe", "Closing Gmail."),
+        "youtube": ("taskkill /f /im chrome.exe", "Closing YouTube."),
+        "google": ("taskkill /f /im chrome.exe", "Closing Google."),
+        "facebook": ("taskkill /f /im chrome.exe", "Closing Facebook."),
+        "twitter": ("taskkill /f /im chrome.exe", "Closing Twitter."),
+        "whatsapp": ("taskkill /f /im chrome.exe", "Closing WhatsApp."),
+        "instagram": ("taskkill /f /im chrome.exe", "Closing Instagram."),
+        "linkedin": ("taskkill /f /im chrome.exe", "Closing LinkedIn."),
+        "stack overflow": ("taskkill /f /im chrome.exe", "Closing Stack Overflow."),
+        "github": ("taskkill /f /im chrome.exe", "Closing GitHub."),
+        "reddit": ("taskkill /f /im chrome.exe", "Closing Reddit."),
+        "quora": ("taskkill /f /im chrome.exe", "Closing Quora."),
+        "amazon": ("taskkill /f /im chrome.exe", "Closing Amazon."),
+        "flipkart": ("taskkill /f /im chrome.exe", "Closing Flipkart."),
+        "news": ("taskkill /f /im chrome.exe", "Closing News."),
+        "weather": ("taskkill /f /im chrome.exe", "Closing Weather."),
+        "calendar": ("taskkill /f /im outlook.exe", "Closing Calendar."),
+        "clock": ("taskkill /f /im Time.exe", "Closing Clock."),
+        "settings": ("taskkill /f /im SystemSettings.exe", "Closing Settings."),
+        "control panel": ("taskkill /f /im control.exe", "Closing Control Panel."),
+        "task scheduler": ("taskkill /f /im mmc.exe", "Closing Task Scheduler."),
+        "snipping tool": ("taskkill /f /im SnippingTool.exe", "Closing Snipping Tool."),
+        "paint": ("taskkill /f /im mspaint.exe", "Closing Paint."),
+        "word": ("taskkill /f /im WINWORD.EXE", "Closing Microsoft Word."),
+        "excel": ("taskkill /f /im EXCEL.EXE", "Closing Microsoft Excel."),
+        "powerpoint": ("taskkill /f /im POWERPNT.EXE", "Closing Microsoft PowerPoint."),
+        "access": ("taskkill /f /im MSACCESS.EXE", "Closing Microsoft Access."),
+        "publisher": ("taskkill /f /im MSPUB.EXE", "Closing Microsoft Publisher."),
+        "onenote": ("taskkill /f /im ONENOTE.EXE", "Closing Microsoft OneNote."),
+        "teams": ("taskkill /f /im Teams.exe", "Closing Microsoft Teams."),
+        "skype": ("taskkill /f /im Skype.exe", "Closing Skype."),
+        "zoom": ("taskkill /f /im Zoom.exe", "Closing Zoom."),
+        "discord": ("taskkill /f /im Discord.exe", "Closing Discord."),
+        "slack": ("taskkill /f /im slack.exe", "Closing Slack."),
+        "notepad++": ("taskkill /f /im notepad++.exe", "Closing Notepad++."),
+        "sublime text": ("taskkill /f /im sublime_text.exe", "Closing Sublime Text."),
+        "visual studio": ("taskkill /f /im devenv.exe", "Closing Visual Studio."),
+        "eclipse": ("taskkill /f /im eclipse.exe", "Closing Eclipse."),
+        "pycharm": ("taskkill /f /im pycharm64.exe", "Closing PyCharm."),
+        "intellij": ("taskkill /f /im idea64.exe", "Closing IntelliJ IDEA."),
+        "android studio": ("taskkill /f /im studio64.exe", "Closing Android Studio."),
+        "Apache NetBeans": ("taskkill /f /im netbeans64.exe", "Closing Apache NetBeans."),
+        }
+        commands = {
         "restart the system": ("shutdown /r /t 5", "Restarting the system."),
         "shutdown the system": ("shutdown /s /t 5", "Shutting down the system."),
         "open voice access": (lambda: pyautogui.hotkey("win", "h"), "Opening voice access mode."),
     }
 
-    if command in commands:
-        action, response = commands[command]
-        if callable(action):
-            action()
-        else:
-            text_to_speech(response)
-            os.system(action)
-    else:
-        text_to_speech("Command not recognized.")
+        for keyword in ["open", "start", "launch"]:
+            if command.startswith(keyword):
+                app_name = command[len(keyword):].strip()
+                if app_name in app_commands:
+                    action, response = app_commands[app_name]
+                    os.system(action)
+                    text_to_speech(response)
+                    return
 
+    # Handle close
+        if command.startswith("close"):
+           app_name = command[len("close"):].strip()
+           if app_name in close_commands:
+               action, response = close_commands[app_name]
+               os.system(action)
+               text_to_speech(response)
+               return
+
+        if command in commands:
+            action, response = commands[command]
+            if callable(action):
+                action()
+            else:
+                os.system(action)
+            text_to_speech(response)
 def voice_to_input():
     recognizer = sr.Recognizer()
     text_to_speech("Hello, Aditya. I am Rose, your personal assistant.")

@@ -176,7 +176,7 @@ def voice_to_input():
                 chat_window.insert(tk.END, "Listening to your command.\n")
                 text_to_speech("Listening to your command.")
                 recognizer.adjust_for_ambient_noise(source, duration=0.5)
-                audio = recognizer.listen(source, timeout=5, phrase_time_limit=5)
+                audio = recognizer.listen(source, timeout=10, phrase_time_limit=10)
                 voice_input = recognizer.recognize_google(audio)
                 chat_window.insert(tk.END, f"Recognized Voice Input: {voice_input}\n")
                 text_to_speech(f"You said: {voice_input}")
@@ -199,8 +199,6 @@ def voice_to_input():
                                     text_to_speech("Exiting search mode.")
                                     break
                         
-                            except sr.UnknownValueError:
-                                chat_window.insert(tk.END, "Sorry, I could not understand the search query. Please try again.\n")
                             except Exception as e:
                                 chat_window.insert(tk.END, f"An error occurred: {e}\n")
                                 break
@@ -218,10 +216,6 @@ def voice_to_input():
                     chat_window.insert(tk.END, "Exiting the application...\n")
                     app.quit()
                     break
-            except sr.UnknownValueError:
-                chat_window.insert(tk.END, "Sorry, I could not understand the audio.\n")
-            except sr.RequestError as e:
-                chat_window.insert(tk.END, f"Could not request results; {e}\n")
             except Exception as e:
                 chat_window.insert(tk.END, f"An error occurred: {e}\n")
 

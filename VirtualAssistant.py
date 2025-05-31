@@ -20,10 +20,11 @@ class VirtualAssistant:
         # self.master.resizable(False, False)
 
         self.languages = {"English": "en-US", "Hindi": "hi-IN"}
+        self.listening = True  # Add this line
 
         # UI Components
         self.create_ui()
-        self.start_listening()
+        self.voice_listening()
 
     def create_ui(self):
         """Create the user interface components."""
@@ -64,12 +65,6 @@ class VirtualAssistant:
     # Input field for user queries
         self.input_field = tk.Entry(self.master, width=40)
         self.input_field.pack(side=tk.LEFT, padx=(10, 5))
-
-
-    # Voice input button
-        # self.voice_button = tk.Button(self.master, text="Voice Input", command=lambda: threading.Thread(target=self.take_voice, args=(self.languages[self.language_var.get()],), daemon=True).start())
-        # self.voice_button.pack(side=tk.LEFT, padx=(5, 10))
-
 
         tk.Button(
             self.master, text="View Notes", command=self.view_notes
@@ -164,18 +159,52 @@ class VirtualAssistant:
         """Convert text to speech."""
         try:
             engine = pyttsx3.init()
+            engine.setProperty('rate', 150)  # Set speech rate
+            engine.setProperty('volume', 1)  # Set volume level (0.0 to 1.0)
+            selected_language = self.language_var.get()
+            voices = engine.getProperty('voices')
+            if selected_language == "Hindi":
+            # Try to find a Hindi voice
+                for voice in voices:
+                    if "hindi" in voice.name.lower() or "hi" in voice.id.lower():
+                        engine.setProperty('voice', voice.id)
+                        break
+                else:
+                    print("Hindi voice not found, using default.")
+            else:
+            # Use the first English voice found
+                for voice in voices:
+                    if "english" in voice.name.lower():
+                        engine.setProperty('voice', voice.id)
+                        break
             engine.say(text)
             engine.runAndWait()
         except Exception as e:
-            print(f"An error occurred in text-to-speech: {e}")
+            print("")
 
     def take_voice(self, language, chat_window, input_field):
-        """Continuously capture voice input and process commands."""
         recognizer = sr.Recognizer()
         mic = sr.Microphone()
         self.text_to_speech("Hey Aditya, I'm Rose.")
 
         while True:
+            if not self.listening:
+                self.text_to_speech("Listening paused. Say 'start listening' to resume.")
+                # Wait for "start listening" command
+                while not self.listening:
+                    with mic as source:
+                        recognizer.adjust_for_ambient_noise(source, duration=0.5)
+                        try:
+                            audio = recognizer.listen(source, timeout=5, phrase_time_limit=5)
+                            command = recognizer.recognize_google(audio, language=language).lower()
+                            if "start listening" in command:
+                                self.listening = True
+                                self.text_to_speech("Listening resumed.")
+                                break
+                        except Exception:
+                            pass
+                continue
+
             try:
                 with mic as source:
                     recognizer.adjust_for_ambient_noise(source, duration=0.5)
@@ -184,138 +213,186 @@ class VirtualAssistant:
                     command = recognizer.recognize_google(audio, language=language).lower()
                     print(f"You said: {command}")
                     self.text_to_speech(f"You said: {command}")
-                
-                    # Process the command
+
+                    # Always update chat window and input field with recognized command
+                    voice_input = command.strip().lower()
+                    chat_window.insert(tk.END, f"Recognized Voice Input: {voice_input}\n")
+                    input_field.delete(0, tk.END)
+                    input_field.insert(0, voice_input)
+
+                    # Always call process_command
+                    self.process_command(command)
+
+                    if "start listening" in command:
+                        self.listening = True
+                        self.text_to_speech("Listening started.")
+                        continue
+                    if "stop listening" in command:
+                        self.listening = False
+                        self.text_to_speech("Listening stopped.")
+                        continue
+
                     if command == "exit":
                         self.text_to_speech("Goodbye! see you next time.")
                         self.master.quit()
                         os._exit(0)
-                        
-                    self.process_command(command)
 
-                    if command.strip() == "{command} search in chatbot":
-                        self.text_to_speech("Searching in chatbot.")
-                        self.get_response1(self.chat_window, self.input_field)
-                        continue
-                    voice_input = command.strip().lower()
-                    self.chat_window.insert(tk.END, f"Recognized Voice Input: {voice_input}\n")
-
-                     # Write the recognized text into the input field
-                    self.input_field.delete(0, tk.END)  # Clear the input field
-                    self.input_field.insert(0, voice_input) 
             except sr.UnknownValueError:
-                self.text_to_speech("Sorry, I couldn't understand that. Please try again.")
-            except sr.RequestError:
-                self.text_to_speech("There was an issue with the speech recognition service.")
-            except sr.WaitTimeoutError:
-                self.text_to_speech("Listening timed out. Please try again.")
+                self.text_to_speech("")
+            except sr.RequestError as e:
+                self.text_to_speech("")
             except Exception as e:
-                self.text_to_speech(f"An error occurred: {e}")
+                self.text_to_speech("")
 
     def process_command(self, command):
         """Process voice commands."""
-        commands = {
-            "open notepad" or "start notepad": ("notepad.exe", "Opening Notepad."),
-            "open calculator": ("calc.exe", "Opening Calculator."),
-            "open file explorer": ("explorer.exe", "Opening File Explorer."),
-            "open command prompt": ("cmd.exe", "Opening Command Prompt."),
-            "open task manager": ("taskmgr.exe", "Opening Task Manager."),
-            "open gmail": ("start chrome https://mail.google.com", "Opening Gmail."),
-            "open youtube": ("start chrome https://www.youtube.com", "Opening YouTube."),
-            "open google": ("start chrome https://www.google.com", "Opening Google."),
-            "open facebook": ("start chrome https://www.facebook.com", "Opening Facebook."),
-            "open twitter": ("start chrome https://www.twitter.com", "Opening Twitter."),
-            "open whatsapp": ("start chrome https://web.whatsapp.com", "Opening WhatsApp."),
-            "open instagram": ("start chrome https://www.instagram.com", "Opening Instagram."),
-            "open linkedin": ("start chrome https://www.linkedin.com", "Opening LinkedIn."),
-            "open stack overflow": ("start chrome https://stackoverflow.com", "Opening Stack Overflow."),
-            "open github": ("start chrome https://github.com", "Opening GitHub."),
-            "open reddit": ("start chrome https://www.reddit.com", "Opening Reddit."),
-            "open quora": ("start chrome https://www.quora.com", "Opening Quora."),
-            "open amazon": ("start chrome https://www.amazon.com", "Opening Amazon."),
-            "open flipkart": ("start chrome https://www.flipkart.com", "Opening Flipkart."),
-            "open news": ("start chrome https://news.google.com", "Opening News."),
-            "open weather": ("start chrome https://weather.com", "Opening Weather."),
-            "open calendar": ("start outlookcal:", "Opening Calendar."),
-            "open clock": ("start ms-clock:", "Opening Clock."),
-            "open settings": ("start ms-settings:", "Opening Settings."),
-            "open control panel": ("control", "Opening Control Panel."),
-            "open task scheduler": ("taskschd.msc", "Opening Task Scheduler."),
-            "open snipping tool": ("snippingtool", "Opening Snipping Tool."),
-            "open paint": ("mspaint", "Opening Paint."),
-            "open word": ("start winword", "Opening Microsoft Word."),
-            "open excel": ("start excel", "Opening Microsoft Excel."),
-            "open powerpoint": ("start powerpnt", "Opening Microsoft PowerPoint."),
-            "open access": ("start msaccess", "Opening Microsoft Access."),
-            "open publisher": ("start mspub", "Opening Microsoft Publisher."),
-            "open onenote": ("start onenote", "Opening Microsoft OneNote."),
-            "open teams": ("start teams", "Opening Microsoft Teams."),
-            "open skype": ("start skype", "Opening Skype."),
-            "open zoom": ("start zoom", "Opening Zoom."),
-            "open discord": ("start discord", "Opening Discord."),
-            "open slack": ("start slack", "Opening Slack."),
-            "open notepad++": ("start notepad++.exe", "Opening Notepad++."),
-            "open sublime text": ("start sublime_text.exe", "Opening Sublime Text."),
-            "open visual studio": ("start devenv", "Opening Visual Studio."),
-            "open eclipse": ("start eclipse", "Opening Eclipse."),
-            "open pycharm": ("start pycharm", "Opening PyCharm."),
-            "open intellij": ("start idea", "Opening IntelliJ IDEA."),
-            "open android studio": ("start studio64", "Opening Android Studio."),
-            "open Apache NetBeans": ("start netbeans", "Opening Apache NetBeans."),
-            #add more applications as needed
-            "close notepad": ("taskkill /f /im notepad.exe", "Closing Notepad."),
-            "close calculator": ("taskkill /f /im calc.exe", "Closing Calculator."),
-            "close file explorer": ("taskkill /f /im explorer.exe", "Closing File Explorer."),
-            "close command prompt": ("taskkill /f /im cmd.exe", "Closing Command Prompt."),
-            "close task manager": ("taskkill /f /im taskmgr.exe", "Closing Task Manager."),
-            "close gmail": ("taskkill /f /im chrome.exe", "Closing Gmail."),
-            "close youtube": ("taskkill /f /im chrome.exe", "Closing YouTube."),
-            "close google": ("taskkill /f /im chrome.exe", "Closing Google."),
-            "close facebook": ("taskkill /f /im chrome.exe", "Closing Facebook."),
-            "close twitter": ("taskkill /f /im chrome.exe", "Closing Twitter."),
-            "close whatsapp": ("taskkill /f /im chrome.exe", "Closing WhatsApp."),
-            "close instagram": ("taskkill /f /im chrome.exe" , "Closing Instagram."),
-            "close linkedin": ("taskkill /f /im chrome.exe", "Closing LinkedIn."),
-            "close stack overflow": ("taskkill /f /im chrome.exe", "Closing Stack Overflow."),
-            "close github": ("taskkill /f /im chrome.exe", "Closing GitHub."),
-            "close reddit": ("taskkill /f /im chrome.exe", "Closing Reddit."),
-            "close quora": ("taskkill /f /im chrome.exe", "Closing Quora."),
-            "close amazon": ("taskkill /f /im chrome.exe", "Closing Amazon."),
-            "close flipkart": ("taskkill /f /im chrome.exe", "Closing Flipkart."),
-            "close news": ("taskkill /f /im chrome.exe", "Closing News."),
-            "close weather": ("taskkill /f /im chrome.exe", "Closing Weather."),
-            "close calendar": ("taskkill /f /im outlook.exe", "Closing Calendar."),
-            "close clock": ("taskkill /f /im Time.exe", "Closing Clock."),
-            "close settings": ("taskkill /f /im SystemSettings.exe", "Closing Settings."),
-            "close control panel": ("taskkill /f /im control.exe", "Closing Control Panel."),
-            "close task scheduler": ("taskkill /f /im mmc.exe", "Closing Task Scheduler."),
-            "close snipping tool": ("taskkill /f /im SnippingTool.exe", "Closing Snipping Tool."),
-            "close paint": ("taskkill /f /im mspaint.exe", "Closing Paint."),
-            "close word": ("taskkill /f /im WINWORD.EXE", "Closing Microsoft Word."),
-            "close excel": ("taskkill /f /im EXCEL.EXE", "Closing Microsoft Excel."),
-            "close powerpoint": ("taskkill /f /im POWERPNT.EXE", "Closing Microsoft PowerPoint."),
-            "close access": ("taskkill /f /im MSACCESS.EXE", "Closing Microsoft Access."),
-            "close publisher": ("taskkill /f /im MSPUB.EXE", "Closing Microsoft Publisher."),
-            "close onenote": ("taskkill /f /im ONENOTE.EXE", "Closing Microsoft OneNote."),
-            "close teams": ("taskkill /f /im Teams.exe", "Closing Microsoft Teams."),
-            "close skype": ("taskkill /f /im Skype.exe", "Closing Skype."),
-            "close zoom": ("taskkill /f /im Zoom.exe", "Closing Zoom."),
-            "close discord": ("taskkill /f /im Discord.exe", "Closing Discord."),
-            "close slack": ("taskkill /f /im slack.exe", "Closing Slack."),
-            "close notepad++": ("taskkill /f /im notepad++.exe", "Closing Notepad++."),
-            "close sublime text": ("taskkill /f /im sublime_text.exe", "Closing Sublime Text."),
-            "close visual studio": ("taskkill /f /im devenv.exe", "Closing Visual Studio."),
-            "close eclipse": ("taskkill /f /im eclipse.exe", "Closing Eclipse."),
-            "close pycharm": ("taskkill /f /im pycharm64.exe", "Closing PyCharm."),
-            "close intellij": ("taskkill /f /im idea64.exe", "Closing IntelliJ IDEA."),
-            "close android studio": ("taskkill /f /im studio64.exe", "Closing Android Studio."),
-            "close Apache NetBeans": ("taskkill /f /im netbeans64.exe", "Closing Apache NetBeans."),
-            # add more for closing applications as needed
-            # some system commands
-            "restart the system": ("shutdown /r /t 5", "Restarting the system."),
-            "shutdown the system": ("shutdown /s /t 5", "Shutting down the system."),
-            "open voice access": (lambda: pyautogui.hotkey("win", "h"), "Opening voice access mode."),
+        app_commands = {
+        "notepad": ("notepad.exe", "Opening Notepad."),
+        "calculator": ("calc.exe", "Opening Calculator."),
+        "file explorer": ("explorer.exe", "Opening File Explorer."),
+        "command prompt": ("cmd.exe", "Opening Command Prompt."),
+        "task manager": ("taskmgr.exe", "Opening Task Manager."),
+        "gmail": ("start chrome https://mail.google.com", "Opening Gmail."),
+        "youtube": ("start chrome https://www.youtube.com", "Opening YouTube."),
+        "google": ("start chrome https://www.google.com", "Opening Google."),
+        "facebook": ("start chrome https://www.facebook.com", "Opening Facebook."),
+        "twitter": ("start chrome https://www.twitter.com", "Opening Twitter."),
+        "whatsapp": ("start chrome https://web.whatsapp.com", "Opening WhatsApp."),
+        "instagram": ("start chrome https://www.instagram.com", "Opening Instagram."),
+        "linkedin": ("start chrome https://www.linkedin.com", "Opening LinkedIn."),
+        "stack overflow": ("start chrome https://stackoverflow.com", "Opening Stack Overflow."),
+        "github": ("start chrome https://github.com", "Opening GitHub."),
+        "reddit": ("start chrome https://www.reddit.com", "Opening Reddit."),
+        "quora": ("start chrome https://www.quora.com", "Opening Quora."),
+        "amazon": ("start chrome https://www.amazon.com", "Opening Amazon."),
+        "flipkart": ("start chrome https://www.flipkart.com", "Opening Flipkart."),
+        "news": ("start chrome https://news.google.com", "Opening News."),
+        "weather": ("start chrome https://weather.com", "Opening Weather."),
+        "calendar": ("start outlookcal:", "Opening Calendar."),
+        "clock": ("start ms-clock:", "Opening Clock."),
+        "settings": ("start ms-settings:", "Opening Settings."),
+        "control panel": ("control", "Opening Control Panel."),
+        "chrome": ("start chrome", "Opening Google Chrome."),
+        "firefox": ("start firefox", "Opening Mozilla Firefox."),
+        "edge": ("start msedge", "Opening Microsoft Edge."),
+        "safari": ("start safari", "Opening Safari."),
+        "opera": ("start opera", "Opening Opera."),
+        "brave": ("start brave", "Opening Brave."),
+        "vivaldi": ("start vivaldi", "Opening Vivaldi."),
+        "internet explorer": ("start iexplore", "Opening Internet Explorer."),
+        "task scheduler": ("taskschd.msc", "Opening Task Scheduler."),
+        "snipping tool": ("snippingtool", "Opening Snipping Tool."),
+        "paint": ("mspaint", "Opening Paint."),
+        "word": ("start winword", "Opening Microsoft Word."),
+        "excel": ("start excel", "Opening Microsoft Excel."),
+        "powerpoint": ("start powerpnt", "Opening Microsoft PowerPoint."),
+        "access": ("start msaccess", "Opening Microsoft Access."),
+        "publisher": ("start mspub", "Opening Microsoft Publisher."),
+        "onenote": ("start onenote", "Opening Microsoft OneNote."),
+        "teams": ("start teams", "Opening Microsoft Teams."),
+        "skype": ("start skype", "Opening Skype."),
+        "zoom": ("start zoom", "Opening Zoom."),
+        "discord": ("start discord", "Opening Discord."),
+        "slack": ("start slack", "Opening Slack."),
+        "notepad++": ("start notepad++.exe", "Opening Notepad++."),
+        "sublime text": ("start sublime_text.exe", "Opening Sublime Text."),
+        "visual studio": ("start devenv", "Opening Visual Studio."),
+        "eclipse": ("start eclipse", "Opening Eclipse."),
+        "pycharm": ("start pycharm", "Opening PyCharm."),
+        "intellij": ("start idea", "Opening IntelliJ IDEA."),
+        "android studio": ("start studio64", "Opening Android Studio."),
+        "Apache NetBeans": ("start netbeans", "Opening Apache NetBeans."),
+        "next track": ("nircmd mediaplay next", "Skipping to the next track."),
+        "previous track": ("nircmd mediaplay prev", "Going back to the previous track."),
+        "play music": ("start wmplayer", "Opening Windows Media Player."),
+        "pause music": ("nircmd mediaplay pause", "Pausing music playback."),
         }
+        close_commands = {
+        "notepad": ("taskkill /f /im notepad.exe", "Closing Notepad."),
+        "calculator": ("taskkill /f /im calc.exe", "Closing Calculator."),
+        "file explorer": ("taskkill /f /im explorer.exe", "Closing File Explorer."),
+        "command prompt": ("taskkill /f /im cmd.exe", "Closing Command Prompt."),
+        "chrome": ("taskkill /f /im chrome.exe", "Closing Google Chrome."),
+        "firefox": ("taskkill /f /im firefox.exe", "Closing Mozilla Firefox."),
+        "edge": ("taskkill /f /im msedge.exe", "Closing Microsoft Edge."),
+        "safari": ("taskkill /f /im safari.exe", "Closing Safari."),
+        "opera": ("taskkill /f /im opera.exe", "Closing Opera."),
+        "brave": ("taskkill /f /im brave.exe", "Closing Brave."),
+        "vivaldi": ("taskkill /f /im vivaldi.exe", "Closing Vivaldi."),
+        "internet explorer": ("taskkill /f /im iexplore.exe", "Closing Internet Explorer."),
+        "task scheduler": ("taskkill /f /im taskschd.msc", "Closing Task Scheduler."),
+        "task manager": ("taskkill /f /im taskmgr.exe", "Closing Task Manager."),
+        "gmail": ("taskkill /f /im chrome.exe", "Closing Gmail."),
+        "youtube": ("taskkill /f /im chrome.exe", "Closing YouTube."),
+        "google": ("taskkill /f /im chrome.exe", "Closing Google."),
+        "facebook": ("taskkill /f /im chrome.exe", "Closing Facebook."),
+        "twitter": ("taskkill /f /im chrome.exe", "Closing Twitter."),
+        "whatsapp": ("taskkill /f /im chrome.exe", "Closing WhatsApp."),
+        "instagram": ("taskkill /f /im chrome.exe", "Closing Instagram."),
+        "linkedin": ("taskkill /f /im chrome.exe", "Closing LinkedIn."),
+        "stack overflow": ("taskkill /f /im chrome.exe", "Closing Stack Overflow."),
+        "github": ("taskkill /f /im chrome.exe", "Closing GitHub."),
+        "reddit": ("taskkill /f /im chrome.exe", "Closing Reddit."),
+        "quora": ("taskkill /f /im chrome.exe", "Closing Quora."),
+        "amazon": ("taskkill /f /im chrome.exe", "Closing Amazon."),
+        "flipkart": ("taskkill /f /im chrome.exe", "Closing Flipkart."),
+        "news": ("taskkill /f /im chrome.exe", "Closing News."),
+        "weather": ("taskkill /f /im chrome.exe", "Closing Weather."),
+        "calendar": ("taskkill /f /im outlook.exe", "Closing Calendar."),
+        "clock": ("taskkill /f /im Time.exe", "Closing Clock."),
+        "settings": ("taskkill /f /im SystemSettings.exe", "Closing Settings."),
+        "control panel": ("taskkill /f /im control.exe", "Closing Control Panel."),
+        "task scheduler": ("taskkill /f /im mmc.exe", "Closing Task Scheduler."),
+        "snipping tool": ("taskkill /f /im SnippingTool.exe", "Closing Snipping Tool."),
+        "paint": ("taskkill /f /im mspaint.exe", "Closing Paint."),
+        "word": ("taskkill /f /im WINWORD.EXE", "Closing Microsoft Word."),
+        "excel": ("taskkill /f /im EXCEL.EXE", "Closing Microsoft Excel."),
+        "powerpoint": ("taskkill /f /im POWERPNT.EXE", "Closing Microsoft PowerPoint."),
+        "access": ("taskkill /f /im MSACCESS.EXE", "Closing Microsoft Access."),
+        "publisher": ("taskkill /f /im MSPUB.EXE", "Closing Microsoft Publisher."),
+        "onenote": ("taskkill /f /im ONENOTE.EXE", "Closing Microsoft OneNote."),
+        "teams": ("taskkill /f /im Teams.exe", "Closing Microsoft Teams."),
+        "skype": ("taskkill /f /im Skype.exe", "Closing Skype."),
+        "zoom": ("taskkill /f /im Zoom.exe", "Closing Zoom."),
+        "discord": ("taskkill /f /im Discord.exe", "Closing Discord."),
+        "slack": ("taskkill /f /im slack.exe", "Closing Slack."),
+        "notepad++": ("taskkill /f /im notepad++.exe", "Closing Notepad++."),
+        "sublime text": ("taskkill /f /im sublime_text.exe", "Closing Sublime Text."),
+        "visual studio": ("taskkill /f /im devenv.exe", "Closing Visual Studio."),
+        "eclipse": ("taskkill /f /im eclipse.exe", "Closing Eclipse."),
+        "pycharm": ("taskkill /f /im pycharm64.exe", "Closing PyCharm."),
+        "intellij": ("taskkill /f /im idea64.exe", "Closing IntelliJ IDEA."),
+        "android studio": ("taskkill /f /im studio64.exe", "Closing Android Studio."),
+        "Apache NetBeans": ("taskkill /f /im netbeans64.exe", "Closing Apache NetBeans."),
+        "voice access": (lambda: pyautogui.hotkey("win", "h"), "Opening voice access mode."),
+        "music": ("nircmd mediaplay stop", "Stopping music playback."),
+        
+        }
+        commands = {
+        "restart the system": ("shutdown /r /t 5", "Restarting the system."),
+        "shutdown the system": ("shutdown /s /t 5", "Shutting down the system."),
+        "lock the system": ("rundll32.exe user32.dll,LockWorkStation", "Locking the system."),
+        "sleep the system": ("rundll32.exe powrprof.dll,SetSuspendState 0,1,0", "Putting the system to sleep."),
+        "hibernate the system": ("rundll32.exe powrprof.dll,SetSuspendState 1,1,0", "Hibernating the system."),
+        "log off": ("shutdown /l", "Logging off the current user."),
+    }
+
+        for keyword in ["open", "start", "launch","run", "execute","play", "use", "access","go to", "browse", "visit","search","find", "show", "display","activate"]:
+            if command.startswith(keyword):
+                app_name = command[len(keyword):].strip()
+                if app_name in app_commands:
+                    action, response = app_commands[app_name]
+                    os.system(action)
+                    self.text_to_speech(response)
+                    return
+        for keyword in ["close", "exit", "quit", "stop", "terminate", "end"]:
+            if command.startswith(keyword):
+                app_name = command[len(keyword):].strip()
+                if app_name in close_commands:
+                    action, response = close_commands[app_name]
+                    os.system(action)
+                    self.text_to_speech(response)
+                    return
 
         if command in commands:
             action, response = commands[command]
@@ -327,21 +404,10 @@ class VirtualAssistant:
         elif command == "exit":
             self.text_to_speech("Goodbye!")
             self.quit()
-        elif command == "open chatbot":
-            if not self.is_chatbot_running():
-                self.launch_chatbot()
-            else:
-                self.text_to_speech("Chatbot is already running.")
-        elif command == "close chatbot":
-            self.close_chatbot()
-        elif command == "start voice input":
-            self.start_voice_input()
-        elif command == "send message":
-            self.send_message()
         else:
-            self.text_to_speech("Command not recognized.")
+            self.text_to_speech("")
 
-    def start_listening(self):
+    def voice_listening(self):
         """Start listening for voice commands."""
         language = self.languages[self.language_var.get()]
         threading.Thread(

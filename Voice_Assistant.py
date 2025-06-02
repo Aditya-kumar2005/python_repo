@@ -6,46 +6,68 @@ import speech_recognition as sr
 import threading
 import os
 import pyautogui
+from PIL import Image, ImageTk # Keep if you plan to use images later
 
-API_KEY = "AIzaSyBla75QrCuFRBHQSXEjrfJUSLEcVY7TlA4"
+# --- Configuration ---
+# IMPORTANT: Replace "YOUR_API_KEY_HERE" with your actual Google Gemini API key.
+# It is highly recommended to load API keys from environment variables for security.
+# Example: API_KEY = os.getenv("GOOGLE_API_KEY")
+API_KEY = "AIzaSyBla75QrCuFRBHQSJUSLEcVY7TlA4" # Placeholder - REPLACE THIS!
 genai.configure(api_key=API_KEY)
 
+# --- Global Variables for persistent objects ---
+engine = None # pyttsx3 engine
+model = genai.GenerativeModel("gemini-2.0-flash")
+chat = model.start_chat() # For persistent conversation history
+
 def text_to_speech(text):
+    """Converts text to speech using pyttsx3 in a separate thread."""
     def speak():
+        global engine
+        if engine is None:
+            try:
+                engine = pyttsx3.init()
+                engine.setProperty('rate', 150)
+            except Exception as e:
+                print(f"Error initializing text-to-speech engine: {e}")
+                return
         try:
-            engine = pyttsx3.init()
             engine.say(text)
-            engine.setProperty('rate', 150)
             engine.runAndWait()
         except Exception as e:
-            print(f"An error occurred in text-to-speech: {e}")
+            print(f"Error during text-to-speech: {e}")
     threading.Thread(target=speak, daemon=True).start()
 
 def get_response(user_input):
-    model = genai.GenerativeModel("gemini-2.0-flash")
-    chat = model.start_chat()
-
+    """Sends user input to the Gemini model and displays the response."""
     if not user_input.strip():
-        return "No input provided."
+        chat_window.insert(tk.END, "Bot: No input provided.\n\n")
+        text_to_speech("No input provided.")
+        return
 
-    response = chat.send_message(user_input)
+    try:
+        response = chat.send_message(user_input)
+        response_text = response.text
+    except Exception as e:
+        response_text = f"An error occurred while getting response: {e}"
+        print(response_text)
 
     chat_window.insert(tk.END, f"You: {user_input}\n")
-    chat_window.insert(tk.END, f"Bot: {response.text}\n\n")
-    text_to_speech(response.text)
+    chat_window.insert(tk.END, f"Bot: {response_text}\n\n")
+    chat_window.yview(tk.END) # Auto-scroll to the bottom
+    text_to_speech(response_text)
     input_field.delete(0, tk.END)
-    return response.text
 
 def process_command(command):
-        """Process voice commands."""
-        app_commands = {
+    """Processes voice commands to open/close applications or perform system actions."""
+    app_commands = {
         "notepad": ("notepad.exe", "Opening Notepad."),
         "calculator": ("calc.exe", "Opening Calculator."),
         "file explorer": ("explorer.exe", "Opening File Explorer."),
         "command prompt": ("cmd.exe", "Opening Command Prompt."),
         "task manager": ("taskmgr.exe", "Opening Task Manager."),
         "gmail": ("start chrome https://mail.google.com", "Opening Gmail."),
-        "youtube": ("start chrome https://www.youtube.com", "Opening YouTube."),
+        "youtube": ("start chrome https://www.youtube.com", "Opening YouTube."), # Fixed URL
         "google": ("start chrome https://www.google.com", "Opening Google."),
         "facebook": ("start chrome https://www.facebook.com", "Opening Facebook."),
         "twitter": ("start chrome https://www.twitter.com", "Opening Twitter."),
@@ -85,9 +107,9 @@ def process_command(command):
         "pycharm": ("start pycharm", "Opening PyCharm."),
         "intellij": ("start idea", "Opening IntelliJ IDEA."),
         "android studio": ("start studio64", "Opening Android Studio."),
-        "Apache NetBeans": ("start netbeans", "Opening Apache NetBeans."),
-        }
-        close_commands = {
+        "apache netbeans": ("start netbeans", "Opening Apache NetBeans."),
+    }
+    close_commands = {
         "notepad": ("taskkill /f /im notepad.exe", "Closing Notepad."),
         "calculator": ("taskkill /f /im calc.exe", "Closing Calculator."),
         "file explorer": ("taskkill /f /im explorer.exe", "Closing File Explorer."),
@@ -134,109 +156,171 @@ def process_command(command):
         "pycharm": ("taskkill /f /im pycharm64.exe", "Closing PyCharm."),
         "intellij": ("taskkill /f /im idea64.exe", "Closing IntelliJ IDEA."),
         "android studio": ("taskkill /f /im studio64.exe", "Closing Android Studio."),
-        "Apache NetBeans": ("taskkill /f /im netbeans64.exe", "Closing Apache NetBeans."),
-        }
-        commands = {
+        "apache netbeans": ("taskkill /f /im netbeans64.exe", "Closing Apache NetBeans."),
+    }
+    system_commands = { # Renamed from 'commands' to avoid confusion with command parameter
         "restart the system": ("shutdown /r /t 5", "Restarting the system."),
         "shutdown the system": ("shutdown /s /t 5", "Shutting down the system."),
         "open voice access": (lambda: pyautogui.hotkey("win", "h"), "Opening voice access mode."),
     }
 
-        for keyword in ["open", "start", "launch"]:
-            if command.startswith(keyword):
-                app_name = command[len(keyword):].strip()
-                if app_name in app_commands:
-                    action, response = app_commands[app_name]
-                    os.system(action)
-                    text_to_speech(response)
-                    return
-
-    # Handle close
-        if command.startswith("close"):
-           app_name = command[len("close"):].strip()
-           if app_name in close_commands:
-               action, response = close_commands[app_name]
-               os.system(action)
-               text_to_speech(response)
-               return
-
-        if command in commands:
-            action, response = commands[command]
-            if callable(action):
-                action()
-            else:
+    # Handle open/start/launch commands
+    for keyword in ["open", "start", "launch"]:
+        if command.startswith(keyword):
+            app_name = command[len(keyword):].strip()
+            if app_name in app_commands:
+                action, response = app_commands[app_name]
                 os.system(action)
+                text_to_speech(response)
+                return
+
+    # Handle close commands
+    if command.startswith("close"):
+        app_name = command[len("close"):].strip()
+        if app_name in close_commands:
+            action, response = close_commands[app_name]
+            os.system(action)
             text_to_speech(response)
+            return
+
+    # Handle general system commands
+    if command in system_commands:
+        action, response = system_commands[command]
+        if callable(action):
+            action()
+        else:
+            os.system(action)
+        text_to_speech(response)
+        return
+
+    # If no specific command is matched, treat as a general query for the AI
+    get_response(command)
+
+
 def voice_to_input():
+    """Continuously listens for voice input and processes it."""
     recognizer = sr.Recognizer()
-    text_to_speech("Hello, Aditya. I am Rose, your personal assistant.")
+    text_to_speech("Hello, Aditya. I am Rose, your assistant.")
     while True:
         with sr.Microphone() as source:
             try:
                 chat_window.insert(tk.END, "Listening to your command.\n")
+                chat_window.yview(tk.END)
                 text_to_speech("Listening to your command.")
                 recognizer.adjust_for_ambient_noise(source, duration=0.5)
-                audio = recognizer.listen(source, timeout=10, phrase_time_limit=10)
+                audio = recognizer.listen(source, timeout=5, phrase_time_limit=10)
                 voice_input = recognizer.recognize_google(audio)
                 chat_window.insert(tk.END, f"Recognized Voice Input: {voice_input}\n")
+                chat_window.yview(tk.END)
                 text_to_speech(f"You said: {voice_input}")
                 input_field.delete(0, tk.END)
                 input_field.insert(0, voice_input)
-                if voice_input.lower() == "search":
+
+                lower_voice_input = voice_input.lower()
+
+                if lower_voice_input == "search":
                     text_to_speech("What do you want to search?")
                     chat_window.insert(tk.END, "What do you want to search?\n")
-                    while True:
+                    chat_window.yview(tk.END)
+                    while True: # Inner loop for search mode
                         with sr.Microphone() as source2:
                             recognizer.adjust_for_ambient_noise(source2, duration=0.5)
-                            audio2 = recognizer.listen(source2, timeout=5, phrase_time_limit=10)
+                            audio2 = recognizer.listen(source2, timeout=10, phrase_time_limit=10)
                             try:
                                 question = recognizer.recognize_google(audio2)
                                 chat_window.insert(tk.END, f"Searching for: {question}\n")
+                                chat_window.yview(tk.END)
                                 input_field.delete(0, tk.END)
                                 input_field.insert(0, question)
-                                get_response(question)
-                                if question.lower() == "exit from search":                                 
-                                    text_to_speech("Exiting search mode.")
-                                    break
-                        
-                            except Exception as e:
-                                chat_window.insert(tk.END, f"An error occurred: {e}\n")
-                                break
-                        
-                    continue
 
-                else:
-                    text_to_speech("Processing your command.")
-                    process_command(voice_input.lower())
-                if voice_input.lower() == "clear":
-                    chat_window.insert(tk.END, "clearing chat...\n")
+                                if question.lower() == "exit from search":
+                                    text_to_speech("Exiting search mode.")
+                                    chat_window.insert(tk.END, "Exiting search mode.\n\n")
+                                    chat_window.yview(tk.END)
+                                    break # Exit inner search loop
+                                if question.lower() == "clear":
+                                    chat_window.insert(tk.END, "Clearing chat...\n")
+                                    chat_window.delete(1.0, tk.END)
+                                    continue # Continue inner search loop, don't process as general query
+                                if question.lower() == "exit":
+                                    chat_window.insert(tk.END, "Exiting the application...\n")
+                                    chat_window.yview(tk.END)
+                                    app.quit()
+                                    return # Exit main loop and function
+                                get_response(question) # Send the question to Gemini
+
+                            except sr.UnknownValueError:
+                                chat_window.insert(tk.END, "Could not understand audio in search mode.\n")
+                                chat_window.yview(tk.END)
+                            except sr.RequestError as e:
+                                chat_window.insert(tk.END, f"Could not request results from Google Speech Recognition service; {e}\n")
+                                chat_window.yview(tk.END)
+                            except Exception as e:
+                                chat_window.insert(tk.END, f"An error occurred during search input: {e}\n")
+                                chat_window.yview(tk.END)
+                                break # Exit search loop on other errors
+
+                elif lower_voice_input == "clear":
+                    chat_window.insert(tk.END, "Clearing chat...\n")
                     chat_window.delete(1.0, tk.END)
+                    chat_window.yview(tk.END)
                     continue
-                if voice_input.lower() == "exit":
+                elif lower_voice_input == "exit":
                     chat_window.insert(tk.END, "Exiting the application...\n")
+                    chat_window.yview(tk.END)
                     app.quit()
                     break
+                else:
+                    text_to_speech("Processing your command.")
+                    process_command(lower_voice_input)
+
+            except sr.UnknownValueError:
+                chat_window.insert(tk.END, "Could not understand audio.\n")
+                chat_window.yview(tk.END)
+            except sr.RequestError as e:
+                chat_window.insert(tk.END, f"Could not request results from Google Speech Recognition service; {e}\n")
+                chat_window.yview(tk.END)
             except Exception as e:
-                chat_window.insert(tk.END, f"An error occurred: {e}\n")
+                chat_window.insert(tk.END, f"An error occurred during voice input: {e}\n")
+                chat_window.yview(tk.END)
 
 def start_listening():
+    """Starts the voice recognition thread."""
     threading.Thread(target=voice_to_input, daemon=True).start()
 
-# Create the main application window
+# --- GUI Setup ---
 app = tk.Tk()
-app.title("Virtual Assistant")
-app.geometry("600x800")
-app.configure(bg="black")
+app.title("Rose Assistant")
+app.geometry("800x800")
+app.configure(bg="black", padx=10, pady=10)
 
-chat_window = scrolledtext.ScrolledText(app, wrap=tk.WORD, bg="green", fg="white", width=100, height=30, font=("Arial", 12))
-chat_window.insert(tk.END, "Welcome to the Generative AI Chatbot!\n")
+
+
+chat_window = scrolledtext.ScrolledText(app, wrap=tk.WORD, bg="lightgreen", fg="black", width=100, height=30, font=("Arial", 12))
+chat_window.place(x=20, y=20)
 chat_window.insert(tk.END, "Say something you want or type it\n")
 chat_window.insert(tk.END, "Say 'clear' to clear the chat\n")
-chat_window.insert(tk.END, "Say 'exit' to close the application\n")
-chat_window.pack(padx=10, pady=10)
+chat_window.insert(tk.END, "Say 'exit' to close the application\n\n")
+
 
 input_field = tk.Entry(app, width=50)
-input_field.pack(padx=10, pady=10)
+input_field.place(x=20, y=600)
+
+# Bind Enter key to send message from input_field
+def send_message_from_entry(event=None):
+    user_input = input_field.get()
+    if user_input:
+        get_response(user_input)
+    else:
+        chat_window.insert(tk.END, "You: (empty input)\n")
+        chat_window.yview(tk.END)
+
+input_field.bind("<Return>", send_message_from_entry)
+
+# Add a send button for text input
+send_button = tk.Button(app, text="Send", command=send_message_from_entry)
+send_button.place(x=450, y=600)
+
 
 start_listening()
 

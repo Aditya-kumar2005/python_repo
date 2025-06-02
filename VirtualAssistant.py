@@ -1,5 +1,6 @@
 import tkinter as tk
 import os
+from numpy import save
 import pyttsx3
 import pyautogui
 import speech_recognition as sr
@@ -13,6 +14,10 @@ import requests
 import yt_dlp
 from PIL import Image, ImageTk
 import math
+from datetime import datetime
+
+
+ # Replace with your actual key
 
 # Ensure you have the required libraries installed:
 # pip install pyttsx3 pyautogui SpeechRecognition google-generativeai requests yt-dlp Pillow
@@ -60,10 +65,9 @@ class VirtualAssistant:
         # For example, set GOOGLE_API_KEY=YOUR_API_KEY in your system environment
         # and then access it like: os.getenv("GOOGLE_API_KEY")
         # For demonstration, keeping it here but strongly advise against it for production
-        # API_KEY = "AIzaSyBla75QrCuFRBHQSXEjrfJUSLEcVY7TlA4"
+        GOOGLE_API_KEY = "AIzaSyBla75QrCuFRBHQSXEjrfJUSLEcVY7TlA4"
         # Replace with your actual key or os.getenv
-        API_KEY = os.getenv("API_KEY")
-        genai.configure(api_key=API_KEY)
+        genai.configure(api_key=GOOGLE_API_KEY)
         self.chat_model = genai.GenerativeModel("gemini-2.0-flash")
         self.chat_session = self.chat_model.start_chat()
 
@@ -133,39 +137,56 @@ class VirtualAssistant:
 
     def create_ui(self):
         """Create the user interface components."""
+        chat_frame = tk.Frame(self.master, bg="blue")  # Removed bd and relief here
+        chat_frame.place(relx=0.5, rely=0.9, anchor="s", width=1200, height=150)
 
-        # Use self.master for all UI elements
-        # Frame for chat window and input field (positioned at bottom center)
-        chat_frame = tk.Frame(self.master, bg="white")
-        # Place it at the bottom center of the main window
-        chat_frame.place(relx=0.5, rely=1.0, anchor="s", width=800, height=300) # Adjusted size
-
-        self.chat_window = scrolledtext.ScrolledText(chat_frame, bg="white", wrap=tk.WORD, font=("Arial", 12))
+        self.chat_window = scrolledtext.ScrolledText(
+            chat_frame,
+            bg="orange",
+            wrap=tk.WORD,
+            font=("Arial", 12),
+            borderwidth=5,  # Increased border width for a more noticeable effect
+            relief=tk.RAISED,  # Raised border
+            highlightthickness=5,  # This will create the rounded corner effect
+            highlightbackground="lightblue", # Color of the border
+            highlightcolor="lightblue" # Color when focused
+        )
         self.chat_window.pack(expand=True, fill="both", pady=(5, 0)) # Added some padding
 
         # Input field for user queries
-        self.input_field = tk.Entry(chat_frame, bg="lightgray", font=("Arial", 12))
+        self.input_field = tk.Entry(
+            chat_frame,
+            bg="lightgray",
+            font=("Arial", 12),
+            borderwidth=3,  # Border width for the input field
+            relief=tk.GROOVE,  # Groove relief for a sunken effect, which can enhance rounded corners
+            highlightthickness=5,  # This will make the corners very rounded
+            highlightbackground="darkgray", # Color of the border when not focused
+            highlightcolor="blue" # Color of the border when focused
+        )
         self.input_field.pack(side="left", padx=10, pady=5, expand=True, fill="x")
 
+        # Frame for chat window and input field (positioned at bottom center)
+#
         # Send button for manual input
         send_button = tk.Button(chat_frame, text="Send", command=self.send_manual_message, font=("Arial", 12))
         send_button.pack(side="right", padx=10, pady=5)
 
 
         # Language selection
-        tk.Label(self.master, text="Select Language:", bg="black", font=("Arial", 16), fg="white").place(x=50, y=50)
+        tk.Label(self.master, text="Languages:", bg="black", font=("Arial", 16), fg="white").place(x=50, y=50)
         self.language_var = tk.StringVar(value="English")
         language_option_menu = tk.OptionMenu(self.master, self.language_var, *self.languages.keys())
         language_option_menu.config(font=("Arial", 14), bg="gray", fg="white")
         language_option_menu.place(x=250, y=50)
 
         # Filename input and buttons
-        tk.Label(self.master, text="Filename for Notes:", bg="black", font=("Arial", 16), fg="white").place(x=50, y=100)
-        self.filename_area = tk.Text(self.master, width=30, height=1, font=("Arial", 14))
+        tk.Label(self.master, text="Filename:", bg="black", font=("Arial", 16), fg="white").place(x=50, y=100)
+        self.filename_area = tk.Text(self.master, bg="yellow", width=30, height=1, font=("Arial", 14))
         self.filename_area.place(x=280, y=100)
         self.filename_area.insert(tk.END, "voice_notes.txt") # Default filename
 
-        tk.Button(self.master, text="Save Text to File", command=self.save_text_to_file, font=("Arial", 12)).place(x=50, y=150)
+        tk.Button(self.master, text="Save Text", command=self.save_text_to_file, font=("Arial", 12)).place(x=50, y=150)
         tk.Button(self.master, text="View Notes", command=self.view_notes, font=("Arial", 12)).place(x=200, y=150)
         tk.Button(self.master, text="Delete Notes", command=self.delete_notes, font=("Arial", 12)).place(x=350, y=150)
 
@@ -184,7 +205,6 @@ class VirtualAssistant:
                 self.chat_window.insert(tk.END, f"Bot: {response_text}\n\n")
                 self.text_to_speech(response_text)
 
-
     def get_filename(self):
         """Get the filename from the user or use a default."""
         filename = self.filename_area.get("1.0", tk.END).strip()
@@ -194,7 +214,8 @@ class VirtualAssistant:
         """Get a response from the Google Generative AI model."""
         try:
             response = self.chat_session.send_message(user_input)
-            return response.text
+            response_text = response.text
+            return response_text
         except Exception as e:
             print(f"Error getting response from Gemini: {e}")
             return "Sorry, I couldn't connect to the AI model."
@@ -225,7 +246,7 @@ class VirtualAssistant:
         except Exception as e:
             print(f"Error in text_to_speech: {e}")
 
-    def take_voice(self, language):
+    def take_voice(self, language, filename="voice_notes.txt"):
         recognizer = sr.Recognizer()
         mic = sr.Microphone()
         self.text_to_speech("Hey Aditya, I'm Rose. How can I help you?")
@@ -268,7 +289,11 @@ class VirtualAssistant:
                     self.input_field.insert(0, voice_input)
 
                     self.process_command(command)
-
+                    save_content = voice_input
+                    # timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+                    with open(filename, "a", encoding='utf-8') as file:
+                        file.write( save_content + "\n")
+                    self.chat_window.insert(tk.END, f"Saved to {filename}.\n\n")
                     if "start listening" in command:
                         self.listening = True
                         self.text_to_speech("Listening started.")

@@ -23,7 +23,7 @@ import colorsys
 # pip install pyttsx3 pyautogui SpeechRecognition google-generativeai requests yt-dlp Pillow
 
 
-class VirtualAssistant:
+class _test:
     """A simple voice assistant GUI application."""
 
     # Constants
@@ -484,7 +484,8 @@ class VirtualAssistant:
     def take_voice(self, language, filename="voice_notes.txt"):
         recognizer = sr.Recognizer()
         mic = sr.Microphone()
-        self.text_to_speech("Hey Aditya, I'm Rose.")
+        self.text_to_speech("Hey Aditya, I'm Rose. How can I help you?")
+
         while True:
             if not self.listening:
                 self.text_to_speech("Listening paused. Say 'start listening' to resume.")
@@ -510,7 +511,6 @@ class VirtualAssistant:
 
             try:
                 with mic as source:
-                    self.text_to_speech("Listening for your command now.")
                     recognizer.adjust_for_ambient_noise(source, duration=0.5)
                     self.text_to_speech("I'm Listening ")
                     audio = recognizer.listen(source, timeout=self.LISTENING_TIMEOUT, phrase_time_limit=self.PHRASE_TIME_LIMIT)
@@ -550,7 +550,7 @@ class VirtualAssistant:
                         self.text_to_speech(response_text)
 
             except sr.UnknownValueError:
-                self.text_to_speech("Sorry, I didn't catch that. Please repeat your command.")
+                self.text_to_speech("Sorry, I didn't catch that. Can you please repeat?")
             except sr.RequestError as e:
                 self.text_to_speech(f"Could not request results from speech recognition service; {e}")
             except sr.WaitTimeoutError:
@@ -566,12 +566,6 @@ class VirtualAssistant:
             filename += ".txt"
         self.filename_area.delete("1.0", tk.END)
         self.filename_area.insert(tk.END, filename)
-        text = self.filename_area.get("1.0", tk.END).strip()
-        if text:
-            filename = self.get_filename()
-            with open(filename, "a", encoding="utf-8") as file:
-                file.write(text + "\n")
-            self.chat_window.insert(tk.END, f"Text saved to {filename}.\n\n")
         return filename if filename else "voice_notes.txt"
 
 
@@ -869,9 +863,8 @@ class VirtualAssistant:
         if command.startswith("give file name "):  # <-- Use this consistently
             file = command[len("give file name "):].strip()
             if file:
-                self.text_to_speech(f"Setting filename to {file}.")
                 self.set_filename(file)
-                self.text_to_speech(f"Filename set to {file}. Please dictate your notes or command.")
+                self.text_to_speech(f"Filename set to: {file}")
             else:
                 self.text_to_speech("Please provide a filename.")
             return
@@ -879,7 +872,6 @@ class VirtualAssistant:
         if command.startswith("search ") and command.endswith(" on google"):
             search_query = command[len("search "):-len(" on google")].strip()
             if search_query:
-                self.text_to_speech(f"Searching Google for {search_query}.")
                 query = search_query.replace(" ", "+")
                 url = f"https://www.google.com/search?q={query}"
                 webbrowser.open(url)
@@ -910,5 +902,5 @@ class VirtualAssistant:
 # Run the application
 if __name__ == "__main__":
     root = tk.Tk()
-    app = VirtualAssistant(root)
+    app = _test(root)
     root.mainloop()

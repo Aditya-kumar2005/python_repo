@@ -23,7 +23,7 @@ import colorsys
 # pip install pyttsx3 pyautogui SpeechRecognition google-generativeai requests yt-dlp Pillow
 
 
-class _test:
+class _test: # Virtual Assistant copy
     """A simple voice assistant GUI application."""
 
     # Constants

@@ -106,6 +106,13 @@ class VirtualAssistant:
         self.engine.setProperty('rate', self.SPEECH_RATE)
         self.engine.setProperty('volume', self.SPEECH_VOLUME)
 
+        # Try to set a soft, smooth female English voice
+        voices = self.engine.getProperty('voices')
+        for voice in voices:
+            if ("female" in voice.name.lower() or "zira" in voice.name.lower() or "eva" in voice.name.lower()) and "english" in voice.name.lower():
+                self.engine.setProperty('voice', voice.id)
+                break
+
         # Configure Google Generative AI
         GOOGLE_API_KEY = "AIzaSyBla75QrCuFRBHQSXEjrfJUSLEcVY7TlA4"
         genai.configure(api_key=GOOGLE_API_KEY)
@@ -287,6 +294,17 @@ class VirtualAssistant:
         self.input_field.pack(side="left", padx=10, pady=5, expand=True, fill="x")
         send_button = tk.Button(chat_frame, text="Send", command=self.send_manual_message, font=("Arial", 12))
         send_button.pack(side="right", padx=10, pady=5)
+
+        # --- New: Control Buttons ---
+        control_frame = tk.Frame(self.master, bg="black")
+        control_frame.place(x=1350, y=800)  # Adjust position as needed
+
+        stop_button = tk.Button(
+            control_frame, text="Stop Speaking", command=self.stop_speaking,
+            font=("Arial", 10), bg="red", fg="white", width=14, height=2
+        )
+        stop_button.pack(pady=5)
+
         self.language_var = tk.StringVar(value="English")
         language_option_menu = tk.OptionMenu(self.master, self.language_var, *self.languages.keys())
         language_option_menu.config(font=("Arial", 14), bg="black", fg="white")
@@ -441,23 +459,9 @@ class VirtualAssistant:
         self.text_to_speech("What would you like to do next?")
         return
 
-    def save_text_to_file(self):
-        text = self.input_field.get().strip()
-        if text:
-            filename = self.get_filename()
-            with open(filename, "a", encoding="utf-8") as file:
-                file.write(text + "\n")
-            self.chat_window.insert(tk.END, f"Text saved to {filename}.\n\n")
-            self.text_to_speech(f"Text saved to {filename}.")
-        else:
-            self.chat_window.insert(tk.END, "No text to save.\n\n")
-            self.text_to_speech("No text to save.")
-        self.text_to_speech("What would you like to do next?")
-        return
-
     def speak_help(self):
         help_text = (
-            "You can say: open notepad, play music, give file name followed by your filename, "
+            "You can say: open notepad, play music, save file name followed by your filename, "
             "save file, view notes, delete notes, search something on Google, or play a song on YouTube. "
             "Say exit to close me. What would you like to do?"
         )
@@ -628,10 +632,10 @@ class VirtualAssistant:
         return {
             "view notes": (self.view_notes, "Notes is opened"),
             "delete notes": (self.delete_notes, "Notes is deleted"),
-            "save file": (self.save_text_to_file, "Text is saved to file"),
             "save the chat": (self.save_last_gemini_response, "Gemini response saved to file"),  # <-- Add this line
             "clear chat": (lambda: self.chat_window.delete(1.0, tk.END), "Chat cleared"),
             "help": (self.speak_help, "Here are some things you can ask me."),
+            "exit the app": (lambda: self.master.quit(), "Exiting the app."),
         }
 
     def process_command(self, command):
@@ -702,10 +706,20 @@ class VirtualAssistant:
                 self.text_to_speech("Please tell me what song to play on YouTube.")
             self.text_to_speech("What would you like to do next?")
             return
-        if command.startswith("give file name "):
-            file = command[len("give file name "):].strip()
+        if command.startswith("save file name "):
+            file = command[len("save file name "):].strip()
             if file:
                 self.set_filename(file)
+                text = self.input_field.get().strip()
+                if text:
+                    filename = self.get_filename()
+                    with open(filename, "a", encoding="utf-8") as file:
+                        file.write(text + "\n")
+                    self.chat_window.insert(tk.END, f"Text saved to {filename}.\n\n")
+                    self.text_to_speech(f"Text saved to {filename}.")
+                else:
+                    self.chat_window.insert(tk.END, "No text to save.\n\n")
+                    self.text_to_speech("No text to save.")
             else:
                 self.text_to_speech("Please provide a filename.")
             self.text_to_speech("What would you like to do next?")
@@ -752,6 +766,22 @@ class VirtualAssistant:
     def clean_tts_text(self, text):
         """Remove asterisks and extra whitespace for TTS clarity."""
         return text.replace("*", "").strip()
+
+    def stop_speaking(self):
+        """Stop the TTS engine immediately."""
+        try:
+            self.engine.stop()
+            self.text_to_speech("Speaking stopped.")
+        except Exception as e:
+            print(f"Error stopping speech: {e}")
+
+    def start_listening(self):
+        """Resume listening and speaking."""
+        if not self.listening:
+            self.listening = True
+            self.text_to_speech("Listening and speaking resumed.")
+        else:
+            self.text_to_speech("Already listening and speaking.")
 
 # Run the application
 if __name__ == "__main__":

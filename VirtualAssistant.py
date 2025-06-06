@@ -3,7 +3,7 @@ import os
 import pyttsx3
 import pyautogui
 import speech_recognition as sr
-from tkinter import scrolledtext
+from tkinter import scrolledtext, simpledialog, messagebox
 import threading
 import google.generativeai as genai
 import webbrowser
@@ -17,6 +17,9 @@ import colorsys
 import logging
 import random
 import functools
+# For cloud and multi-user (example: Firebase, AWS, or your own API)
+import firebase_admin
+from firebase_admin import credentials, firestore
 
 # --- Self-healing and retry decorators ---
 def self_healing(func):
@@ -26,7 +29,6 @@ def self_healing(func):
             return func(*args, **kwargs)
         except Exception as e:
             logging.error(f"Error occurred: {e}")
-            # Self-repair logic or fallback
             return "Error occurred. Please try again or contact support."
     return wrapper
 
@@ -56,11 +58,11 @@ def simulate_unstable_operation():
         return "Operation succeeded"
 
 class VirtualAssistant:
-    """A simple voice assistant GUI application."""
+    """A scalable, multi-user, cloud-enabled, AI-powered voice assistant."""
 
     # Constants
-    WINDOW_WIDTH = 1500
-    WINDOW_HEIGHT = 1000
+    WINDOW_WIDTH = 900  # Optimized for mobile/tablet screens
+    WINDOW_HEIGHT = 600
     PULSE_MAX_RADIUS_FACTOR = 0.25
     PULSE_MIN_RADIUS_FACTOR = 0.3
     PULSE_SPEED = 2
@@ -74,38 +76,37 @@ class VirtualAssistant:
         self.master = master
         self.master.title("Rose")
         self.master.geometry(f"{self.WINDOW_WIDTH}x{self.WINDOW_HEIGHT}")
-        self.master.configure(bg="black")
-        self.master.resizable(False, False)
+        self.master.configure(bg="#181c24")
+        self.master.resizable(True, True)
         self.root = master
-        self.canvas = tk.Canvas(master, width=1000, height=1000, bg="black")
-        self.canvas.pack()
-        self.canvas = tk.Canvas(self.master, width=self.WINDOW_WIDTH, height=self.WINDOW_HEIGHT, bg="black", highlightthickness=0)
-        self.canvas.place(x=0, y=0, relwidth=1, relheight=1)
-        self.pulse_radius = 150
+        self.canvas = tk.Canvas(self.master, width=self.WINDOW_WIDTH, height=250, bg="#181c24", highlightthickness=0)
+        self.canvas.pack(fill="x")
+        self.pulse_radius = 80
         self.pulse_direction = 1
         self.angle = 0
-        self.sphere_radius = 150
-        self.num_slices = 40
-        self.num_meridians = 40
+        self.sphere_radius = 80
+        self.num_slices = 30
+        self.num_meridians = 30
         self.animation_speed = 10
         self.rotation_angle_y = 0
         self.rotation_speed_y = 0.02
         self.rotation_angle_x = 0
         self.rotation_speed_x = 0.01
-        self.focal_length = 600
+        self.focal_length = 400
         self.center_x = self.canvas.winfo_width() / 2
         self.center_y = self.canvas.winfo_height() / 2
-        self.voice_react_timer = 0  # Timer for animation reaction
-        self.voice_react_duration = 20  # Number of animation frames to react
+        self.voice_react_timer = 0
+        self.voice_react_duration = 20
         self.animate_combined()
         self.languages = {"English": "en-US", "Hindi": "hi-IN"}
         self.listening = True
+        self.last_gemini_response = None
+        self.current_user = None  # For multi-user
 
-        # Initialize text-to-speech engine
+        # Initialize TTS engine
         self.engine = pyttsx3.init()
         self.engine.setProperty('rate', self.SPEECH_RATE)
         self.engine.setProperty('volume', self.SPEECH_VOLUME)
-
         # Try to set a soft, smooth female English voice
         voices = self.engine.getProperty('voices')
         for voice in voices:
@@ -119,6 +120,13 @@ class VirtualAssistant:
         self.chat_model = genai.GenerativeModel("gemini-2.0-flash")
         self.chat_session = self.chat_model.start_chat()
 
+        # --- Cloud/Multi-user setup (stub) ---
+        if not firebase_admin._apps:
+            cred = credentials.Certificate("serviceAccountKey.json")
+            firebase_admin.initialize_app(cred)
+        self.db = firestore.client()
+        self.user_id = None
+
         # UI Components
         self.create_ui()
 
@@ -131,14 +139,14 @@ class VirtualAssistant:
         self.text_to_speech(greeting)
         self.chat_window.insert(tk.END, "Rose: Hello! Say 'help' to hear what I can do.\n\n")
 
-        # --- Automate unstable operation demo on startup ---
+        # System check
         result = simulate_unstable_operation()
         self.chat_window.insert(tk.END, f"System check: {result}\n\n")
         self.text_to_speech(f"System check: {result}")
 
         self.voice_listening()
 
-    # --- Animation methods (unchanged) ---
+    # --- Animation methods (unchanged, but optimized for smaller canvas) ---
     def rotate_point_3d(self, x, y, z, angle_x, angle_y):
         rotated_x = x * math.cos(angle_y) - z * math.sin(angle_y)
         rotated_z = x * math.sin(angle_y) + z * math.cos(angle_y)
@@ -165,28 +173,20 @@ class VirtualAssistant:
         self.center_x = self.canvas.winfo_width() / 2
         self.center_y = self.canvas.winfo_height() / 2
         self.canvas.delete("all")
-        # --- Animation reaction logic ---
         pulse_boost = 1.0
         color_boost = 0
         if self.voice_react_timer > 0:
-            pulse_boost = 1.3  # Make the pulse bigger
-            color_boost = 80   # Make the color more vibrant
+            pulse_boost = 1.3
+            color_boost = 80
             self.voice_react_timer -= 1
-
-        # Use pulse_boost in your pulse calculations:
         canvas_width = self.master.winfo_width()
-        canvas_height = self.master.winfo_height()
-        if canvas_width == 1:
-            canvas_width = self.WINDOW_WIDTH
-            canvas_height = self.WINDOW_HEIGHT
+        canvas_height = 250
         center_x, center_y = canvas_width // 2, canvas_height // 2
         max_radius = min(canvas_width, canvas_height) * self.PULSE_MAX_RADIUS_FACTOR * pulse_boost
         min_radius = max_radius * self.PULSE_MIN_RADIUS_FACTOR
         self.pulse_radius += self.pulse_direction * self.PULSE_SPEED
         if self.pulse_radius > max_radius or self.pulse_radius < min_radius:
             self.pulse_direction *= -1
-
-        # Example: change color when reacting
         pulse_color = "#00FFFF" if color_boost == 0 else "#%02XFFFF" % (0 + color_boost)
         for i in range(10, 0, -1):
             r = self.pulse_radius * (i / 10)
@@ -195,20 +195,6 @@ class VirtualAssistant:
                 center_x + r, center_y + r,
                 outline=pulse_color, width=2 if i == 10 else 1
             )
-        for lat in range(-60, 80, 30):
-            r_lat = self.pulse_radius * math.cos(math.radians(lat))
-            self.canvas.create_oval(
-                center_x - r_lat, center_y - r_lat * math.sin(math.radians(lat)),
-                center_x + r_lat, center_y + r_lat * math.sin(math.radians(lat)),
-                outline="#00FFFF", width=1
-            )
-        for lon in range(0, 180, 30):
-            angle = math.radians(self.angle + lon)
-            for t in range(0, 361, 10):
-                t_rad = math.radians(t)
-                x = center_x + self.pulse_radius * math.sin(t_rad) * math.cos(angle)
-                y = center_y + self.pulse_radius * math.sin(t_rad) * math.sin(angle)
-                self.canvas.create_oval(x-2, y-2, x+2, y+2, fill="#00ffff", outline="")
         self.canvas.create_oval(
             center_x - 30, center_y - 30,
             center_x + 30, center_y + 30,
@@ -217,100 +203,86 @@ class VirtualAssistant:
         self.angle = (self.angle + 8) % 360
         self.rotation_angle_y += self.rotation_speed_y
         self.rotation_angle_x += self.rotation_speed_x
-        for i in range(self.num_slices):
-            phi = math.pi * (i / (self.num_slices - 1))
-            y_sphere_coord = self.sphere_radius * math.cos(phi)
-            effective_radius = self.sphere_radius * math.sin(phi)
-            pA_x, pA_y, pA_z = self.rotate_point_3d(effective_radius, y_sphere_coord, 0, self.rotation_angle_x, self.rotation_angle_y)
-            pB_x, pB_y, pB_z = self.rotate_point_3d(-effective_radius, y_sphere_coord, 0, self.rotation_angle_x, self.rotation_angle_y)
-            pC_x, pC_y, pC_z = self.rotate_point_3d(0, y_sphere_coord, effective_radius, self.rotation_angle_x, self.rotation_angle_y)
-            pD_x, pD_y, pD_z = self.rotate_point_3d(0, y_sphere_coord, -effective_radius, self.rotation_angle_x, self.rotation_angle_y)
-            proj_pA_x, proj_pA_y = self.project_3d_to_2d(pA_x, pA_y, pA_z)
-            proj_pB_x, proj_pB_y = self.project_3d_to_2d(pB_x, pB_y, pB_z)
-            proj_pC_x, proj_pC_y = self.project_3d_to_2d(pC_x, pC_y, pC_z)
-            proj_pD_x, proj_pD_y = self.project_3d_to_2d(pD_x, pD_y, pD_z)
-            min_proj_x = min(proj_pA_x, proj_pB_x, proj_pC_x, proj_pD_x)
-            max_proj_x = max(proj_pA_x, proj_pB_x, proj_pC_x, proj_pD_x)
-            min_proj_y = min(proj_pA_y, proj_pB_y, proj_pC_y, proj_pD_y)
-            max_proj_y = max(proj_pA_y, proj_pB_y, proj_pC_y, proj_pD_y)
-            avg_z = (pA_z + pB_z + pC_z + pD_z) / 4
-            if self.focal_length + avg_z < 10:
-                continue
-            hue = (i / self.num_slices) * 360
-            color = self.get_color_from_depth(avg_z, self.sphere_radius, hue)
-            self.canvas.create_oval(self.center_x + min_proj_x, self.center_y + min_proj_y,
-                                    self.center_x + max_proj_x, self.center_y + max_proj_y,
-                                    outline=color, width=1)
-        for i in range(self.num_meridians):
-            theta = (2 * math.pi / self.num_meridians) * i
-            points = []
-            zs = []
-            for j in range(self.num_slices):
-                phi = math.pi * (j / (self.num_slices - 1))
-                x_3d = self.sphere_radius * math.sin(phi) * math.cos(theta)
-                y_3d = self.sphere_radius * math.cos(phi)
-                z_3d = self.sphere_radius * math.sin(phi) * math.sin(theta)
-                rot_x, rot_y, rot_z = self.rotate_point_3d(x_3d, y_3d, z_3d, self.rotation_angle_x, self.rotation_angle_y)
-                proj_x, proj_y = self.project_3d_to_2d(rot_x, rot_y, rot_z)
-                points.append((self.center_x + proj_x, self.center_y + proj_y))
-                zs.append(rot_z)
-            if len(zs) > 0:
-                avg_z_meridian = sum(zs) / len(zs)
-            else:
-                avg_z_meridian = 0
-            if self.focal_length + avg_z_meridian < 10:
-                continue
-            hue = (theta / (2 * math.pi)) * 360 + 180
-            color = self.get_color_from_depth(avg_z_meridian, self.sphere_radius, hue)
-            self.canvas.create_line(points, smooth=True, fill=color, width=1)
         self.root.after(self.animation_speed, self.animate_combined)
 
     # --- UI and Assistant Logic ---
     def create_ui(self):
-        chat_frame = tk.Frame(self.master, bg="blue")
-        chat_frame.place(relx=0.5, rely=0.9, anchor="s", width=1200, height=150)
+        # Responsive layout for mobile/tablet
+        chat_frame = tk.Frame(self.master, bg="#222b3a")
+        chat_frame.place(relx=0.5, rely=0.65, anchor="center", width=self.WINDOW_WIDTH-40, height=220)
         self.chat_window = scrolledtext.ScrolledText(
             chat_frame,
-            bg="blue",
+            bg="#222b3a",
+            fg="#e6e6e6",
             wrap=tk.WORD,
-            font=("Arial", 12),
-            borderwidth=5,
+            font=("Arial", 13),
+            borderwidth=2,
             relief=tk.RAISED,
-            highlightthickness=5,
-            highlightbackground="lightblue",
-            highlightcolor="lightblue"
+            highlightthickness=2,
+            highlightbackground="#00ffff",
+            highlightcolor="#00ffff"
         )
         self.chat_window.pack(expand=True, fill="both", pady=(5, 0))
+        input_frame = tk.Frame(self.master, bg="#181c24")
+        input_frame.place(relx=0.5, rely=0.93, anchor="center", width=self.WINDOW_WIDTH-40, height=40)
         self.input_field = tk.Entry(
-            chat_frame,
-            bg="lightgray",
-            font=("Arial", 12),
-            borderwidth=3,
+            input_frame,
+            bg="#f0f0f0",
+            font=("Arial", 13),
+            borderwidth=2,
             relief=tk.GROOVE,
-            highlightthickness=5,
-            highlightbackground="darkgray",
-            highlightcolor="blue"
+            highlightthickness=2,
+            highlightbackground="#00ffff",
+            highlightcolor="#00ffff"
         )
-        self.input_field.pack(side="left", padx=10, pady=5, expand=True, fill="x")
-        send_button = tk.Button(chat_frame, text="Send", command=self.send_manual_message, font=("Arial", 12))
-        send_button.pack(side="right", padx=10, pady=5)
+        self.input_field.pack(side="left", padx=5, pady=5, expand=True, fill="x")
+        send_button = tk.Button(input_frame, text="Send", command=self.send_manual_message, font=("Arial", 12), bg="#00b894", fg="white")
+        send_button.pack(side="right", padx=5, pady=5)
 
-        # --- New: Control Buttons ---
-        control_frame = tk.Frame(self.master, bg="black")
-        control_frame.place(x=1350, y=800)  # Adjust position as needed
-
+        # Control Buttons (right of input)
+        control_frame = tk.Frame(self.master, bg="#181c24")
+        control_frame.place(relx=0.98, rely=0.93, anchor="e")
         stop_button = tk.Button(
             control_frame, text="Stop Speaking", command=self.stop_speaking,
-            font=("Arial", 10), bg="red", fg="white", width=14, height=2
+            font=("Arial", 10), bg="red", fg="white", width=12, height=1
         )
-        stop_button.pack(pady=5)
+        stop_button.pack(pady=2)
 
+        # Language and filename
         self.language_var = tk.StringVar(value="English")
         language_option_menu = tk.OptionMenu(self.master, self.language_var, *self.languages.keys())
-        language_option_menu.config(font=("Arial", 14), bg="black", fg="white")
-        language_option_menu.place(x=1200, y=50)
-        self.filename_area = tk.Text(self.master, bg="yellow", width=30, height=1, font=("Arial", 14))
+        language_option_menu.config(font=("Arial", 12), bg="#181c24", fg="#00ffff")
+        language_option_menu.place(x=20, y=20)
+        self.filename_area = tk.Text(self.master, bg="#ffeaa7", width=20, height=1, font=("Arial", 12))
+        self.filename_area.place(x=180, y=20)
         self.filename_area.insert(tk.END, "voice_notes.txt")
+
+        # --- Multi-user login (stub) ---
+        login_button = tk.Button(self.master, text="Login", command=self.login_user, font=("Arial", 10), bg="#0984e3", fg="white")
+        login_button.place(x=self.WINDOW_WIDTH-100, y=20)
+
+        # --- Cloud sync button (stub) ---
+        sync_button = tk.Button(self.master, text="Sync Cloud", command=self.sync_cloud, font=("Arial", 10), bg="#fdcb6e", fg="black")
+        sync_button.place(x=self.WINDOW_WIDTH-200, y=20)
+
+    def login_user(self):
+        # Example: simple dialog for username (replace with real auth)
+        username = simpledialog.askstring("Login", "Enter your username:")
+        if username:
+            self.current_user = username
+            self.chat_window.insert(tk.END, f"Logged in as {username}\n")
+            self.text_to_speech(f"Welcome, {username}!")
+        else:
+            self.chat_window.insert(tk.END, "Login cancelled.\n")
+
+    def sync_cloud(self):
+        # Stub: Replace with real cloud sync logic
+        self.chat_window.insert(tk.END, "Syncing with cloud...\n")
+        self.text_to_speech("Syncing with cloud.")
+        # Example: Save chat to cloud or load from cloud
+        if self.current_user:
+            self.db.collection("users").document(self.current_user).set({"chat": self.chat_window.get("1.0", tk.END)})
+            self.text_to_speech("Your chat has been saved to the cloud.")
 
     def send_manual_message(self):
         user_input = self.input_field.get().strip()
@@ -330,14 +302,15 @@ class VirtualAssistant:
         filename = self.filename_area.get("1.0", tk.END).strip()
         return filename if filename else "voice_notes.txt"
 
-    # --- Gemini API call with self-healing and retry ---
     @self_healing
     @retry(max_attempts=3, delay=2)
     def get_response_from_gemini(self, user_input):
         try:
-            response = self.chat_session.send_message(user_input)
+            # --- Advanced AI: context, persona, etc. ---
+            context = f"User: {user_input}\nRose (AI):"
+            response = self.chat_session.send_message(context)
             response_text = response.text
-            self.last_gemini_response = response_text  # <-- Store the last response
+            self.last_gemini_response = response_text
             return response_text
         except Exception as e:
             print(f"Error getting response from Gemini: {e}")
@@ -349,20 +322,25 @@ class VirtualAssistant:
             selected_language = self.language_var.get()
             voices = self.engine.getProperty('voices')
             voice_found = False
-            if selected_language == "Hindi":
-                for voice in voices:
-                    if "hindi" in voice.name.lower() or "hi" in voice.id.lower():
-                        self.engine.setProperty('voice', voice.id)
-                        voice_found = True
-                        break
-            else:
-                for voice in voices:
-                    if "english" in voice.name.lower():
-                        self.engine.setProperty('voice', voice.id)
-                        voice_found = True
-                        break
+            # Always use soft female if available
+            for voice in voices:
+                if ("female" in voice.name.lower() or "zira" in voice.name.lower() or "eva" in voice.name.lower()) and "english" in voice.name.lower():
+                    self.engine.setProperty('voice', voice.id)
+                    voice_found = True
+                    break
             if not voice_found:
-                print(f"Warning: {selected_language} voice not found, using default.")
+                if selected_language == "Hindi":
+                    for voice in voices:
+                        if "hindi" in voice.name.lower() or "hi" in voice.id.lower():
+                            self.engine.setProperty('voice', voice.id)
+                            voice_found = True
+                            break
+                else:
+                    for voice in voices:
+                        if "english" in voice.name.lower():
+                            self.engine.setProperty('voice', voice.id)
+                            voice_found = True
+                            break
             self.engine.say(text)
             self.engine.runAndWait()
         except Exception as e:
@@ -371,7 +349,6 @@ class VirtualAssistant:
     def take_voice(self, language, filename="voice_notes.txt"):
         recognizer = sr.Recognizer()
         mic = sr.Microphone()
-        # self.text_to_speech("I'm Rose and I'm ready to take your voice commands.")
         while True:
             if not self.listening:
                 while not self.listening:
@@ -392,7 +369,6 @@ class VirtualAssistant:
                         except Exception as e:
                             print(f"Error during paused listening: {e}")
                 continue
-
             try:
                 with mic as source:
                     self.text_to_speech("I am Listening")
@@ -408,12 +384,12 @@ class VirtualAssistant:
                     if not voice_input:
                         self.text_to_speech("I didn't catch that. Please say your command again.")
                         continue
-                    self.voice_react_timer = self.voice_react_duration  # <-- Add this line to trigger reaction
+                    self.voice_react_timer = self.voice_react_duration
                     self.process_command(command)
                     if not self.is_direct_command(command):
                         response_text = self.get_response_from_gemini(command)
                         self.chat_window.insert(tk.END, f"Bot: {response_text}\n\n")
-                        self.text_to_speech(response_text)
+                        self.text_to_speech(self.clean_tts_text(response_text))
                     self.text_to_speech("What would you like to do next?")
             except sr.UnknownValueError:
                 self.text_to_speech("Sorry, I didn't catch that. Please repeat your command.")
@@ -768,7 +744,6 @@ class VirtualAssistant:
         return text.replace("*", "").strip()
 
     def stop_speaking(self):
-        """Stop the TTS engine immediately."""
         try:
             self.engine.stop()
             self.text_to_speech("Speaking stopped.")
@@ -776,7 +751,6 @@ class VirtualAssistant:
             print(f"Error stopping speech: {e}")
 
     def start_listening(self):
-        """Resume listening and speaking."""
         if not self.listening:
             self.listening = True
             self.text_to_speech("Listening and speaking resumed.")

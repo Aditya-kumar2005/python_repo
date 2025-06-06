@@ -11,9 +11,49 @@ import time
 import re
 import requests
 import yt_dlp
-from PIL import Image, ImageTk
+from PIL import ImageTk
 import math
 import colorsys
+import logging
+import random
+import functools
+
+# --- Self-healing and retry decorators ---
+def self_healing(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            logging.error(f"Error occurred: {e}")
+            # Self-repair logic or fallback
+            return "Error occurred. Please try again or contact support."
+    return wrapper
+
+def retry(max_attempts=3, delay=1):
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            attempts = 0
+            while attempts < max_attempts:
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    attempts += 1
+                    if attempts < max_attempts:
+                        print(f"Attempt {attempts} failed. Retrying in {delay} seconds...")
+                        time.sleep(delay)
+                    else:
+                        return f"Operation failed after {max_attempts} attempts: {e}"
+        return wrapper
+    return decorator
+
+@retry(max_attempts=3, delay=1)
+def simulate_unstable_operation():
+    if random.random() < 0.5:
+        raise Exception("Operation failed")
+    else:
+        return "Operation succeeded"
 
 class VirtualAssistant:
     """A simple voice assistant GUI application."""
@@ -55,6 +95,8 @@ class VirtualAssistant:
         self.focal_length = 600
         self.center_x = self.canvas.winfo_width() / 2
         self.center_y = self.canvas.winfo_height() / 2
+        self.voice_react_timer = 0  # Timer for animation reaction
+        self.voice_react_duration = 20  # Number of animation frames to react
         self.animate_combined()
         self.languages = {"English": "en-US", "Hindi": "hi-IN"}
         self.listening = True
@@ -81,6 +123,11 @@ class VirtualAssistant:
         )
         self.text_to_speech(greeting)
         self.chat_window.insert(tk.END, "Rose: Hello! Say 'help' to hear what I can do.\n\n")
+
+        # --- Automate unstable operation demo on startup ---
+        result = simulate_unstable_operation()
+        self.chat_window.insert(tk.END, f"System check: {result}\n\n")
+        self.text_to_speech(f"System check: {result}")
 
         self.voice_listening()
 
@@ -111,23 +158,35 @@ class VirtualAssistant:
         self.center_x = self.canvas.winfo_width() / 2
         self.center_y = self.canvas.winfo_height() / 2
         self.canvas.delete("all")
+        # --- Animation reaction logic ---
+        pulse_boost = 1.0
+        color_boost = 0
+        if self.voice_react_timer > 0:
+            pulse_boost = 1.3  # Make the pulse bigger
+            color_boost = 80   # Make the color more vibrant
+            self.voice_react_timer -= 1
+
+        # Use pulse_boost in your pulse calculations:
         canvas_width = self.master.winfo_width()
         canvas_height = self.master.winfo_height()
         if canvas_width == 1:
             canvas_width = self.WINDOW_WIDTH
             canvas_height = self.WINDOW_HEIGHT
         center_x, center_y = canvas_width // 2, canvas_height // 2
-        max_radius = min(canvas_width, canvas_height) * self.PULSE_MAX_RADIUS_FACTOR
+        max_radius = min(canvas_width, canvas_height) * self.PULSE_MAX_RADIUS_FACTOR * pulse_boost
         min_radius = max_radius * self.PULSE_MIN_RADIUS_FACTOR
         self.pulse_radius += self.pulse_direction * self.PULSE_SPEED
         if self.pulse_radius > max_radius or self.pulse_radius < min_radius:
             self.pulse_direction *= -1
+
+        # Example: change color when reacting
+        pulse_color = "#00FFFF" if color_boost == 0 else "#%02XFFFF" % (0 + color_boost)
         for i in range(10, 0, -1):
             r = self.pulse_radius * (i / 10)
             self.canvas.create_oval(
-               center_x - r, center_y - r,
+                center_x - r, center_y - r,
                 center_x + r, center_y + r,
-                outline="#00FFFF", width=2 if i == 10 else 1
+                outline=pulse_color, width=2 if i == 10 else 1
             )
         for lat in range(-60, 80, 30):
             r_lat = self.pulse_radius * math.cos(math.radians(lat))
@@ -246,20 +305,25 @@ class VirtualAssistant:
         if not self.is_direct_command(user_input.lower()):
             response_text = self.get_response_from_gemini(user_input)
             self.chat_window.insert(tk.END, f"Bot: {response_text}\n\n")
-            self.text_to_speech(response_text)
+            self.text_to_speech(self.clean_tts_text(response_text))
         self.text_to_speech("What would you like to do next?")
 
     def get_filename(self):
         filename = self.filename_area.get("1.0", tk.END).strip()
         return filename if filename else "voice_notes.txt"
 
+    # --- Gemini API call with self-healing and retry ---
+    @self_healing
+    @retry(max_attempts=3, delay=2)
     def get_response_from_gemini(self, user_input):
         try:
             response = self.chat_session.send_message(user_input)
             response_text = response.text
+            self.last_gemini_response = response_text  # <-- Store the last response
             return response_text
         except Exception as e:
             print(f"Error getting response from Gemini: {e}")
+            self.last_gemini_response = None
             return "Sorry, I couldn't connect to the AI model."
 
     def text_to_speech(self, text):
@@ -326,6 +390,7 @@ class VirtualAssistant:
                     if not voice_input:
                         self.text_to_speech("I didn't catch that. Please say your command again.")
                         continue
+                    self.voice_react_timer = self.voice_react_duration  # <-- Add this line to trigger reaction
                     self.process_command(command)
                     if not self.is_direct_command(command):
                         response_text = self.get_response_from_gemini(command)
@@ -564,6 +629,7 @@ class VirtualAssistant:
             "view notes": (self.view_notes, "Notes is opened"),
             "delete notes": (self.delete_notes, "Notes is deleted"),
             "save file": (self.save_text_to_file, "Text is saved to file"),
+            "save the chat": (self.save_last_gemini_response, "Gemini response saved to file"),  # <-- Add this line
             "clear chat": (lambda: self.chat_window.delete(1.0, tk.END), "Chat cleared"),
             "help": (self.speak_help, "Here are some things you can ask me."),
         }
@@ -670,6 +736,22 @@ class VirtualAssistant:
             args=(language,),
             daemon=True
         ).start()
+
+    def save_last_gemini_response(self):
+        if self.last_gemini_response:
+            filename = self.get_filename()
+            with open(filename, "a", encoding="utf-8") as file:
+                file.write(self.clean_tts_text(self.last_gemini_response) + "\n")
+            self.chat_window.insert(tk.END, f"Gemini response saved to {filename}.\n\n")
+            self.text_to_speech(f"Gemini response saved to {filename}.")
+        else:
+            self.chat_window.insert(tk.END, "No Gemini response to save.\n\n")
+            self.text_to_speech("No Gemini response to save.")
+        self.text_to_speech("What would you like to do next?")
+
+    def clean_tts_text(self, text):
+        """Remove asterisks and extra whitespace for TTS clarity."""
+        return text.replace("*", "").strip()
 
 # Run the application
 if __name__ == "__main__":

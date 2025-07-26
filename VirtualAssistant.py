@@ -115,7 +115,7 @@ class VirtualAssistant:
                 break
 
         # Configure Google Generative AI
-        GOOGLE_API_KEY = "AIzaSyBla75QrCuFRBHQSXEjrfJUSLEcVY7TlA4"
+        GOOGLE_API_KEY = "your_api_key"
         genai.configure(api_key=GOOGLE_API_KEY)
         self.chat_model = genai.GenerativeModel("gemini-2.0-flash")
         self.chat_session = self.chat_model.start_chat()

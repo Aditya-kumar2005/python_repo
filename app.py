@@ -8,7 +8,7 @@ import threading
 import os
 import pyautogui
 
-API_KEY = "AIzaSyBla75QrCuFRBHQSXEjrfJUSLEcVY7TlA4"
+API_KEY = "your_api_key"
 genai.configure(api_key=API_KEY)
     
 

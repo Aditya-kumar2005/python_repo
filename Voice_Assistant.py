@@ -12,7 +12,7 @@ from PIL import Image, ImageTk # Keep if you plan to use images later
 # IMPORTANT: Replace "YOUR_API_KEY_HERE" with your actual Google Gemini API key.
 # It is highly recommended to load API keys from environment variables for security.
 # Example: API_KEY = os.getenv("GOOGLE_API_KEY")
-API_KEY = "AIzaSyBla75QrCuFRBHQSJUSLEcVY7TlA4"  # Placeholder - REPLACE THIS!
+API_KEY = "your_api_keys"  # Placeholder - REPLACE THIS!
 genai.configure(api_key=API_KEY)
 
 # --- Global Variables for persistent objects ---
